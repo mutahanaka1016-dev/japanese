@@ -1,111 +1,73 @@
-import { useState, useCallback, useMemo } from "react";
-import { grammarData } from "@/data/grammarData";
-import ProgressBar from "@/components/ProgressBar";
-import LevelSelector from "@/components/LevelSelector";
-import GrammarNode from "@/components/GrammarNode";
-import { motion } from "framer-motion";
+import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const STORAGE_KEY = "grammar-roadmap-progress";
-
-const loadProgress = (): Set<string> => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
+// --- 初級編のデータ構造 ---
+const grammarData = [
+  {
+    level: "N5",
+    label: "Beginner",
+    categories: [
+      { id: "n5-1", title: "文字と数字", videoUrl: "", quizUrl: "", points: ["Hiragana", "Numbers"] },
+      { id: "n5-2", title: "名詞 (Nouns)", videoUrl: "", quizUrl: "", points: ["Noun①現在型", "Noun②過去型", "KOSOADO", "名詞文の練習"] },
+      { id: "n5-3", title: "い形容詞 (I-adj)", videoUrl: "", quizUrl: "", points: ["I adjective 現在型", "I adjective 過去型", "い形容詞の文章練習"] },
+      { id: "n5-4", title: "な形容詞 (Na-adj)", videoUrl: "", quizUrl: "", points: ["na adjective 現在型", "na adjective 過去型", "な形容詞の文章練習"] },
+      { id: "n5-5", title: "実践 Speaking", videoUrl: "", quizUrl: "", points: ["5つの自己紹介", "定型文：レストラン注文"] }
+    ]
   }
-};
+];
 
-const saveProgress = (set: Set<string>) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
-};
-
-const Index = () => {
+export default function App() {
   const [activeLevel, setActiveLevel] = useState("N5");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [completed, setCompleted] = useState<Set<string>>(loadProgress);
+  const [completed, setCompleted] = useState(new Set());
 
-  const currentLevel = grammarData.find((l) => l.level === activeLevel)!;
+  const currentLevel = grammarData.find(l => l.level === activeLevel);
 
-  const togglePoint = useCallback((id: string) => {
-    setCompleted((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      saveProgress(next);
-      return next;
-    });
-  }, []);
-
-  const completedByLevel = useMemo(() => {
-    const map: Record<string, { completed: number; total: number }> = {};
-    grammarData.forEach((lvl) => {
-      const allPoints = lvl.categories.flatMap((c) => c.points);
-      map[lvl.level] = {
-        total: allPoints.length,
-        completed: allPoints.filter((p) => completed.has(p.id)).length,
-      };
-    });
-    return map;
-  }, [completed]);
-
-  const stats = completedByLevel[activeLevel];
+  const togglePoint = (id) => {
+    const next = new Set(completed);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setCompleted(next);
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      <ProgressBar completed={stats.completed} total={stats.total} level={activeLevel} />
+    <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+      <header style={{ textAlign: 'center', marginBottom: '40px' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: 'bold' }}>文法ロードマップ</h1>
+        <p style={{ color: '#666' }}>Hana & Ruto Japanese Learning</p>
+      </header>
 
-      {/* Header */}
-      <div className="max-w-2xl mx-auto px-4 pt-8 pb-6 text-center">
-        <motion.h1
-          className="font-display font-extrabold text-3xl md:text-4xl text-foreground"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          文法ロードマップ
-        </motion.h1>
-        <p className="text-muted-foreground mt-2 text-sm">
-          Japanese Grammar Roadmap — JLPT N5〜N3
-        </p>
+      {currentLevel?.categories.map((cat) => (
+        <section key={cat.id} style={{ marginBottom: '40px', borderLeft: '2px solid #ddd', paddingLeft: '20px' }}>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '15px' }}>{cat.title}</h2>
+          
+          {/* 動画アコーディオン */}
+          <details style={{ marginBottom: '15px', border: '1px solid #eee', borderRadius: '8px' }}>
+            <summary style={{ padding: '10px', cursor: 'pointer', backgroundColor: '#f9f9f9' }}>🎥 動画で学習（クリックで開く）</summary>
+            <div style={{ padding: '10px', backgroundColor: '#000', color: '#fff', textAlign: 'center' }}>
+              {cat.videoUrl ? <iframe src={cat.videoUrl} width="100%" /> : "動画を準備中..."}
+            </div>
+          </details>
 
-        <div className="mt-6">
-          <LevelSelector
-            levels={grammarData}
-            activeLevel={activeLevel}
-            onSelect={(lvl) => {
-              setActiveLevel(lvl);
-              setExpandedId(null);
-            }}
-            completedByLevel={completedByLevel}
-          />
-        </div>
-      </div>
+          {/* 学習項目リスト */}
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {cat.points.map(point => (
+              <li key={point} style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input type="checkbox" checked={completed.has(point)} onChange={() => togglePoint(point)} />
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
 
-      {/* Timeline */}
-      <div className="max-w-2xl mx-auto px-4 pb-20 relative">
-        {/* Vertical line */}
-        <div className="absolute left-1/2 -translate-x-px top-0 bottom-0 w-0.5 bg-border" />
-
-        {currentLevel.categories.map((cat, i) => (
-          <GrammarNode
-            key={cat.id}
-            category={cat}
-            index={i}
-            isExpanded={expandedId === cat.id}
-            onToggle={() => setExpandedId(expandedId === cat.id ? null : cat.id)}
-            completedPoints={completed}
-            onTogglePoint={togglePoint}
-            side={i % 2 === 0 ? "left" : "right"}
-          />
-        ))}
-
-        {/* End marker */}
-        <div className="flex justify-center mt-4">
-          <div className="w-3 h-3 rounded-full bg-border" />
-        </div>
-      </div>
+          {/* クイズボタン */}
+          <button 
+            onClick={() => window.open(cat.quizUrl, '_blank')}
+            style={{ marginTop: '15px', width: '100%', padding: '10px', backgroundColor: '#000', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+          >
+            ✍️ クイズに挑戦
+          </button>
+        </section>
+      ))}
     </div>
   );
-};
+}
 
 export default Index;
